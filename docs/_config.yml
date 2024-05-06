@@ -3,3 +3,6 @@ description: [A simple Splunk App developed to make your implementation of Splun
 remote_theme: pages-themes/hacker@v0.2.0
 plugins:
 - jekyll-remote-theme
+
+name: Brandon Sternfield (Optiv + ClearShark)
+repository: TheLawsOfChaos/escu_companion
