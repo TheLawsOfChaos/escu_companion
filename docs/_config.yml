@@ -8,8 +8,8 @@ twitter:
 twitter_username: thelawsofchaos
 github_username: thelawsofchaos
 
-include:
-  - _pages
+#include:
+#  - _pages
 
 remote_theme: pages-themes/hacker@v0.2.0
 
