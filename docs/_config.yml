@@ -1,16 +1,6 @@
 title: ESCU Companion App
 #email: brandon@sternfield.tech
 description: This project is meant to support an organization's implementation of Splunk ESCU.
-name: Brandon Sternfield (Optiv + ClearShark)
-repository: TheLawsOfChaos/escu_companion
-twitter:
-  username: thelawsofchaos
-twitter_username: thelawsofchaos
-github_username: thelawsofchaos
-
-#include:
-#  - _pages
-
 remote_theme: pages-themes/hacker@v0.2.0
 
 plugins:
