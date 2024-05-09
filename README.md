@@ -6,7 +6,9 @@ This Splunk App was created by [Brandon Sternfield (Optiv + ClearShark)](https:/
 
 ## Pre-requisites
 Requires [Splunk Enterprise Security](https://splunkbase.splunk.com/app/263) version 7.3 or greater.
+
 Requires [Splunk Enterprise Security Content Updates](https://splunkbase.splunk.com/app/3449) 4.31.0 or greater.
+
 Requires [Splunk Security Essentials](https://splunkbase.splunk.com/app/3435) 3.8.0 or greater.
 
 ## Initial Setup
