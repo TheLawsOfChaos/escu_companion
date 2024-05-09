@@ -1,0 +1,204 @@
+<dashboard version="1.1" theme="dark">
+<!--
+This Dashboard is part of ESCU Companion App v0.0.1
+This app is authored by Brandon Sternfield, Optiv + ClearShark
+-->
+  <label>ESCU Companion - Detection Scheduling</label>
+  <init>
+    <unset token="notableAssetIdentity"></unset>
+    <unset token="unannotated"></unset>
+    <unset token="searchMisconfiguration"></unset>
+    <unset token="searchDevelopment"></unset>
+    <unset token="baseComplete"></unset>
+  </init>
+  <search id="baseSearchDev">
+    <query>
+      | rest splunk_server=local count=0 /servicesNS/-/SplunkEnterpriseSecuritySuite/saved/searches 
+      | search action.correlationsearch.enabled=* 
+      | where match('action.correlationsearch.enabled', "1|[Tt]|[Tt][Rr][Uu][Ee]") 
+      | where disabled=0 
+      | table action.correlationsearch.label cron_schedule eai:acl.app 
+      | rename action.correlationsearch.label AS label, eai:acl.app AS app 
+      | `escu_companion_appfilter` 
+      | eval cron_schedule = if(len(cron_schedule)=9, "0".cron_schedule, cron_schedule) 
+      | append 
+          [ | makeresults count=60 
+          | streamstats count 
+          | eval count = count - 1 
+          | eval len = len(count) 
+          | eval count = if(len=1, "0".count." * * * *", count." * * * *") 
+          | fields - len - _time
+          | rename count AS cron_schedule
+            ] 
+      | stats count values(*) AS * by cron_schedule 
+      | eval count = count - 1
+      | rex field=cron_schedule "^(?P&lt;M&gt;...)"
+    </query>
+    <finalized>
+      <condition match=" 'job.resultCount' != 0">
+        <set token="baseComplete"></set>
+      </condition>
+    </finalized>
+  </search>
+  <row rejects="$baseComplete$">
+    <panel>
+      <html>
+        <style>
+          .customLoader {
+            border: 16px solid #3498db;
+            border-top: 16px solid #00a30e;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+            }
+            
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% {transform: rotate(360deg); }
+            }
+        </style>
+        <h1>Please wait...</h1>
+        <p>This query is searching all saved searches and may take awhile if you have many turned on.</p>
+        <div class="customLoader"/>
+      </html>
+    </panel>
+  </row>
+  <row depends="$baseComplete$">
+    <panel depends="$alwaysHideCSS$">
+      <html>
+        <style>
+          #breakdownPanel{
+          width:75% !important;
+          }
+          #offenderPanel{
+          width:25% !important;
+          }
+        </style>
+      </html>
+    </panel>
+    <panel>
+      <title>Which minute to schedule on</title>
+      <single>
+        <title>Hiding minutes 00, 15, 30, and 45 to avoid scheduling searches on them</title>
+        <search base="baseSearchDev">
+          <query>
+          | rename count AS num
+          | search NOT M IN (00,15,30,45)
+          | stats values(M) AS M by num
+          | head 1
+          | mvexpand M
+          | fields - num
+          | head 1
+          </query>
+        </search>
+        <option name="colorBy">value</option>
+        <option name="colorMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="rangeColors">["0x53a051", "0x0877a6", "0xf8be34", "0xf1813f", "0xdc4e41"]</option>
+        <option name="rangeValues">[0,30,70,100]</option>
+        <option name="showSparkline">1</option>
+        <option name="showTrendIndicator">1</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <option name="trendColorInterpretation">standard</option>
+        <option name="trendDisplayMode">absolute</option>
+        <option name="unitPosition">after</option>
+        <option name="useColors">0</option>
+        <option name="useThousandSeparators">1</option>
+      </single>
+    </panel>
+  </row>
+  <row depends="$baseComplete$">
+    <panel id="breakdownPanel">
+      <title>Breakdown of Detections by Minute</title>
+      <chart>
+        <title>Click on a minute to see the relevant searches</title>
+        <search base="baseSearchDev">
+          <query>
+          | table M count
+          </query>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.overflowMode">ellipsisNone</option>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.axisTitleX.text">Minute</option>
+        <option name="charting.axisTitleX.visibility">visible</option>
+        <option name="charting.axisTitleY.text">Number of Searches</option>
+        <option name="charting.axisTitleY.visibility">visible</option>
+        <option name="charting.axisTitleY2.visibility">visible</option>
+        <option name="charting.axisX.abbreviation">none</option>
+        <option name="charting.axisX.scale">linear</option>
+        <option name="charting.axisY.abbreviation">none</option>
+        <option name="charting.axisY.scale">linear</option>
+        <option name="charting.axisY2.abbreviation">none</option>
+        <option name="charting.axisY2.enabled">0</option>
+        <option name="charting.axisY2.scale">inherit</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.bubbleMaximumSize">50</option>
+        <option name="charting.chart.bubbleMinimumSize">10</option>
+        <option name="charting.chart.bubbleSizeBy">area</option>
+        <option name="charting.chart.nullValueMode">gaps</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.sliceCollapsingThreshold">0.01</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.chart.style">shiny</option>
+        <option name="charting.drilldown">all</option>
+        <option name="charting.layout.splitSeries">0</option>
+        <option name="charting.layout.splitSeries.allowIndependentYRanges">0</option>
+        <option name="charting.legend.labelStyle.overflowMode">ellipsisMiddle</option>
+        <option name="charting.legend.mode">standard</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.lineWidth">2</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+        <drilldown>
+          <set token="searchMinute">$click.value$</set>
+        </drilldown>
+      </chart>
+    </panel>
+    <panel id="offenderPanel">
+      <title>Biggest Offenders</title>
+      <viz type="Splunk_ML_Toolkit.HeatmapViz">
+        <search base="baseSearchDev">
+          <query>
+            | sort - count
+            | head 3
+            | sort - count
+            | table M count
+            | rename M AS Minute, count AS numSearches
+          </query>
+        </search>
+        <option name="Splunk_ML_Toolkit.HeatmapViz.highlightDiagonals">true</option>
+        <option name="Splunk_ML_Toolkit.HeatmapViz.high-charts-background">#5A5A5A</option>
+        <option name="drilldown">none</option>
+        <option name="trellis.enabled">1</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+  </row>
+  <row depends="$searchMinute$, $baseComplete$">
+    <panel>
+      <title>List of correlation searches that match the minute</title>
+      <table>
+        <search base="baseSearchDev">
+          <query>
+            | search M=$searchMinute$
+            | mvexpand label
+            | table cron_schedule label
+          </query>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

@@ -1,0 +1,167 @@
+<form version="1.1" theme="dark">
+<!--
+This Dashboard is part of ESCU Companion App v0.0.1
+This app is authored by Brandon Sternfield, Optiv + ClearShark
+-->
+  <label>ESCU Companion - Explorer</label>
+  <init>
+    <set token="threatGroupQuery">*</set>
+  </init>
+  <search id="mainSearch">
+    <query>
+      | rest splunk_server=local count=0 /servicesNS/-/-/saved/searches
+      | search action.correlationsearch.label=* action.correlationsearch.metadata=*
+      | search disabled=$disabledChoice$
+      | spath input=action.correlationsearch.metadata 
+      | spath input=action.correlationsearch.annotations 
+      | rename *{} AS * 
+      | eval appVersion = 'eai:acl.app'.":".detection_version
+      | rename action.correlationsearch.label AS title, eai:acl.app AS app, mitre_attack AS mitreTechnique
+      | table title app detection_version analytic_story confidence impact mitreTechnique detection_id appVersion
+      | lookup mitre_enterprise_list.csv TechniqueIdCombined AS mitreTechnique OUTPUTNEW Tactic AS mitreTactic, TacticId AS mitreTacticId, Threat_Groups AS threatGroups
+      | search mitreTechnique=$mitreTechChoice$ mitreTactic=$mitreTacticChoice|s$ analytic_story=$analyticStoryChoice|s$ confidence&gt;=$confidenceChoice$ impact&gt;=$impactChoice$ $threatGroupQuery$
+      </query>
+    <earliest>-24h@h</earliest>
+    <latest>now</latest>
+    <sampleRatio>1</sampleRatio>
+  </search>
+  <fieldset submitButton="true">
+    <input type="dropdown" token="mitreTechChoice" searchWhenChanged="true">
+      <label>MITRE ATT&amp;CK Technique</label>
+      <choice value="*">All</choice>
+      <default>*</default>
+      <initialValue>*</initialValue>
+      <fieldForLabel>mitreTechnique</fieldForLabel>
+      <fieldForValue>mitreTechnique</fieldForValue>
+      <search base="mainSearch">
+        <query>| stats values(mitreTechnique) AS mitreTechnique | mvexpand mitreTechnique</query>
+      </search>
+    </input>
+    <input type="dropdown" token="mitreTacticChoice" searchWhenChanged="true">
+      <label>MITRE ATT&amp;CK Tactic</label>
+      <choice value="*">All</choice>
+      <default>*</default>
+      <initialValue>*</initialValue>
+      <fieldForLabel>mitreTactic</fieldForLabel>
+      <fieldForValue>mitreTactic</fieldForValue>
+      <search base="mainSearch">
+        <query>
+          | stats values(mitreTactic) AS mitreTactic | mvexpand mitreTactic
+        </query>
+      </search>
+    </input>
+    <input type="dropdown" token="threatGroupChoice" searchWhenChanged="true">
+      <label>Threat Group</label>
+      <choice value="0">All</choice>
+      <default>0</default>
+      <initialValue>0</initialValue>
+      <fieldForLabel>Threat_Group</fieldForLabel>
+      <fieldForValue>Threat_Group</fieldForValue>
+      <search>
+        <query>
+          | inputlookup mitre_threat_groups.csv 
+          | table Threat_Group 
+          | sort Threat_Group
+        </query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+      <change>
+        <condition label="All">
+          <unset token="threatGroupQuery"></unset>
+          <set token="threatGroupQuery">*</set>
+        </condition>
+        <condition value="*">
+          <unset token="threatGroupQuery"></unset>
+          <set token="threatGroupQuery">threatGroups IN ("*|$threatGroupChoice$|*", "*$threatGroupChoice$|*", "*|$threatGroupChoice$")</set>
+        </condition>
+      </change>
+    </input>
+    <input type="dropdown" token="analyticStoryChoice" searchWhenChanged="true">
+      <label>Analytic Story</label>
+      <choice value="*">All</choice>
+      <default>*</default>
+      <initialValue>*</initialValue>
+      <fieldForLabel>analytic_story</fieldForLabel>
+      <fieldForValue>analytic_story</fieldForValue>
+      <search base="mainSearch">
+        <query>| stats values(analytic_story) AS analytic_story | mvexpand analytic_story</query>
+      </search>
+    </input>
+    <input type="dropdown" token="impactChoice" searchWhenChanged="true">
+      <label>Impact &gt;=</label>
+      <choice value="0">All</choice>
+      <choice value="10">10</choice>
+      <choice value="20">20</choice>
+      <choice value="30">30</choice>
+      <choice value="40">40</choice>
+      <choice value="50">50</choice>
+      <choice value="06">60</choice>
+      <choice value="70">70</choice>
+      <choice value="08">80</choice>
+      <choice value="90">90</choice>
+      <default>0</default>
+      <initialValue>0</initialValue>
+    </input>
+    <input type="dropdown" token="confidenceChoice" searchWhenChanged="true">
+      <label>Confidence &gt;=</label>
+      <choice value="0">All</choice>
+      <choice value="10">10</choice>
+      <choice value="20">20</choice>
+      <choice value="30">30</choice>
+      <choice value="40">40</choice>
+      <choice value="50">50</choice>
+      <choice value="60">60</choice>
+      <choice value="70">70</choice>
+      <choice value="80">80</choice>
+      <choice value="90">90</choice>
+      <choice value="100">100</choice>
+      <default>0</default>
+      <initialValue>0</initialValue>
+    </input>
+    <input type="radio" token="disabledChoice" searchWhenChanged="true">
+      <label>Include Disabled?</label>
+      <choice value="*">Yes</choice>
+      <choice value="0">No</choice>
+      <default>*</default>
+      <initialValue>*</initialValue>
+    </input>
+    <input type="radio" token="updateChoice" searchWhenChanged="true">
+      <label>Missing Updates Only</label>
+      <choice value="0">No</choice>
+      <choice value="1">Yes</choice>
+      <default>No</default>
+      <initialValue>No</initialValue>
+      <change>
+        <condition label="No">
+          <set token="updateFields">- appVersion</set>
+        </condition>
+        <condition label="Yes">
+          <set token="updateFields">- detection_version - app</set>
+        </condition>
+      </change>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <table>
+        <search base="mainSearch">
+          <query>
+            | stats count AS numDetections values(title) AS title, values(detection_version) AS detection_version, values(appVersion) AS appVersion, values(app) AS app, values(analytic_story) AS analytic_story, values(confidence) AS confidence, values(impact) AS impact, values(mitreTechnique) AS mitreTechnique by detection_id
+            | where mvcount(detection_version) &gt; $updateChoice$
+            | sort - numDetections
+            | fields - numDetections $updateFields$
+          </query>
+        </search>
+        <option name="count">20</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="rowNumbers">false</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+</form>
